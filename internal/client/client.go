@@ -8,24 +8,31 @@ import (
 	"net/http"
 )
 
-const anthropicAPIVersion = "2023-06-01"
-
 // Message represents a chat message
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-// Request represents the API request
+// Request represents the API request (OpenAI compatible)
 type Request struct {
-	Model        string    `json:"model"`
-	MaxTokens    int       `json:"max_tokens"`
-	Messages     []Message `json:"messages"`
-	Stream       bool      `json:"stream"`
-	SystemPrompt string    `json:"system,omitempty"`
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
 }
 
-// Client is the Anthropic API client
+// Response represents the API response
+type Response struct {
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// Client is the AI Chat API client
 type Client struct {
 	apiKey string
 	model  string
@@ -35,7 +42,7 @@ type Client struct {
 func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey: apiKey,
-		model:  "claude-3-5-haiku-20241007",
+		model:  "anthropic/claude-sonnet-4.5",
 	}
 }
 
@@ -51,12 +58,16 @@ func (c *Client) GetModel() string {
 
 // SendMessage sends a message and returns the response
 func (c *Client) SendMessage(messages []Message, systemPrompt string) (string, error) {
+	// Add system prompt as first message if provided
+	var allMessages []Message
+	if systemPrompt != "" {
+		allMessages = append(allMessages, Message{Role: "system", Content: systemPrompt})
+	}
+	allMessages = append(allMessages, messages...)
+
 	reqBody := Request{
-		Model:        c.model,
-		MaxTokens:    4096,
-		Messages:     messages,
-		Stream:       false,
-		SystemPrompt: systemPrompt,
+		Model:    c.model,
+		Messages: allMessages,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -64,14 +75,13 @@ func (c *Client) SendMessage(messages []Message, systemPrompt string) (string, e
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", "https://aishop24h.com/v1/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", c.apiKey)
-	req.Header.Set("anthropic-version", anthropicAPIVersion)
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -79,22 +89,13 @@ func (c *Client) SendMessage(messages []Message, systemPrompt string) (string, e
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var response struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-		Error *struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	var response Response
+	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -102,8 +103,8 @@ func (c *Client) SendMessage(messages []Message, systemPrompt string) (string, e
 		return "", fmt.Errorf("API error: %s", response.Error.Message)
 	}
 
-	if len(response.Content) > 0 {
-		return response.Content[0].Text, nil
+	if len(response.Choices) > 0 {
+		return response.Choices[0].Message.Content, nil
 	}
 
 	return "", nil
@@ -112,9 +113,8 @@ func (c *Client) SendMessage(messages []Message, systemPrompt string) (string, e
 // GetAvailableModels returns available models
 func GetAvailableModels() []string {
 	return []string{
-		"claude-3-5-haiku-20241007",
-		"claude-3-5-sonnet-20241022",
-		"claude-3-opus-20240229",
-		"claude-3-haiku-20240307",
+		"anthropic/claude-sonnet-4.5",
+		"anthropic/claude-haiku-4",
+		"anthropic/claude-opus-4",
 	}
 }
