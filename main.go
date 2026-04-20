@@ -5,11 +5,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/nguyenhoang246/go-ai-bot/internal/client"
 )
 
 var botClient *client.Client
+var apiKeyLog string
 
 const htmlPage = `<!DOCTYPE html>
 <html lang="en">
@@ -176,11 +178,42 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+func debugHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Test API key by making a simple request
+	testResp, err := botClient.SendMessage([]client.Message{{Role: "user", Content: "Hi"}}, "You are Claude.")
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"apiKeyLoaded": apiKeyLog,
+			"model":        botClient.GetModel(),
+			"status":       "error",
+			"error":         err.Error(),
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"apiKeyLoaded": apiKeyLog,
+		"model":        botClient.GetModel(),
+		"status":       "ok",
+		"testResponse": strings.TrimSpace(testResp),
+	})
+}
+
 func main() {
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
 		log.Fatal("ANTHROPIC_API_KEY is required")
 	}
+
+	// Log partial key for debugging (first 10 chars only)
+	if len(apiKey) > 10 {
+		apiKeyLog = apiKey[:10] + "..."
+	} else {
+		apiKeyLog = apiKey
+	}
+	log.Printf("API Key loaded: %s", apiKeyLog)
 
 	botClient = client.NewClient(apiKey)
 
@@ -193,6 +226,7 @@ func main() {
 	http.HandleFunc("/api/chat", chatHandler)
 	http.HandleFunc("/api/model", modelHandler)
 	http.HandleFunc("/health", healthHandler)
+	http.HandleFunc("/debug", debugHandler)
 
 	log.Printf("Server starting on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
