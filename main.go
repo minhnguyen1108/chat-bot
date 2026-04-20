@@ -1,230 +1,199 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
+	"encoding/json"
+	"log"
+	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/nguyenhoang246/go-ai-bot/internal/client"
 )
 
-const logo = `
-  ____  ____  ______          __     __
- / __ \/ __ \/_  __/__ ____  / /__  / /_
-/ /_/ / /_/ / / / / __ \` + "`" + ` _ \/ / _ \/ __/
-\____/\____/ /_/  \__/\___/_//_/_/\___/\__/
+var botClient *client.Client
 
-AI Chat Bot - Powered by Anthropic Claude
-Type /help for available commands
-`
+const htmlPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude AI Bot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; display: flex; flex-direction: column; }
+        .header { background: #16213e; padding: 15px 20px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { color: #00d9ff; font-size: 1.4rem; }
+        .model-select { background: #0f3460; color: #fff; border: 1px solid #00d9ff; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+        .chat-container { flex: 1; max-width: 900px; margin: 0 auto; width: 100%; padding: 20px; overflow-y: auto; }
+        .message { margin: 15px 0; padding: 15px 20px; border-radius: 15px; max-width: 80%; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; }
+        .user { background: #0f3460; margin-left: auto; border-bottom-right-radius: 5px; }
+        .bot { background: #16213e; border: 1px solid #0f3460; margin-right: auto; border-bottom-left-radius: 5px; }
+        .input-area { background: #16213e; padding: 20px; border-top: 1px solid #0f3460; }
+        .input-container { max-width: 900px; margin: 0 auto; display: flex; gap: 10px; }
+        textarea { flex: 1; background: #0f3460; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 10px; resize: none; font-size: 1rem; min-height: 50px; max-height: 200px; font-family: inherit; }
+        textarea:focus { outline: none; border-color: #00d9ff; }
+        button { background: #00d9ff; color: #1a1a2e; border: none; padding: 15px 30px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1rem; }
+        button:hover { background: #00b8d9; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .typing { color: #00d9ff; font-style: italic; }
+        .clear-btn { background: #ff6b6b; padding: 8px 15px; border-radius: 8px; font-size: 0.9rem; }
+        .clear-btn:hover { background: #ee5a5a; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Claude AI Bot</h1>
+        <div>
+            <button class="clear-btn" onclick="clearChat()">Clear</button>
+            <select class="model-select" onchange="changeModel(this.value)">
+                <option value="claude-3-5-haiku-20241007">Haiku (Fast)</option>
+                <option value="claude-3-5-sonnet-20241022">Sonnet (Balanced)</option>
+                <option value="claude-3-opus-20240229">Opus (Powerful)</option>
+            </select>
+        </div>
+    </div>
+    <div class="chat-container" id="chat"></div>
+    <div class="input-area">
+        <div class="input-container">
+            <textarea id="input" placeholder="Type your message..." onkeydown="handleKey(event)" rows="1"></textarea>
+            <button onclick="sendMessage()" id="sendBtn">Send</button>
+        </div>
+    </div>
+    <script>
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('sendBtn');
 
-func clearScreen() {
-	fmt.Print("\033[2J\033[H")
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage('user', text);
+            input.value = '';
+            sendBtn.disabled = true;
+
+            const botMsg = addMessage('bot', 'Claude is thinking...');
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    botMsg.innerHTML = '<strong>Claude:</strong>\n<span style="color:#ff6b6b">Error: ' + data.error + '</span>';
+                } else {
+                    botMsg.innerHTML = '<strong>Claude:</strong>\n' + escapeHtml(data.response);
+                }
+            } catch (e) {
+                botMsg.innerHTML = '<strong>Claude:</strong>\n<span style="color:#ff6b6b">Error: ' + e.message + '</span>';
+            }
+
+            sendBtn.disabled = false;
+            input.focus();
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        }
+
+        function addMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            div.innerHTML = text;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+            return div;
+        }
+
+        function handleKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        async function changeModel(model) {
+            await fetch('/api/model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: model })
+            });
+            addMessage('bot', '<strong>Claude:</strong>\nModel switched!');
+        }
+
+        async function clearChat() {
+            chat.innerHTML = '';
+        }
+    </script>
+</body>
+</html>`
+
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(htmlPage))
 }
 
-func printLogo() {
-	clearScreen()
-	fmt.Println(logo)
-}
-
-func printHelp() {
-	fmt.Println(`
-Available Commands:
-  /help              - Show this help message
-  /clear             - Clear chat history
-  /models            - List available models
-  /model <name>      - Switch to a different model
-  /exit              - Exit the chat
-  /tokens <number>   - Set max tokens (default: 4096)
-  Ctrl+C             - Exit the chat
-`)
-}
-
-type Chat struct {
-	client       *client.Client
-	messages     []client.Message
-	systemPrompt string
-	maxTokens    int
-}
-
-func NewChat(apiKey string) *Chat {
-	return &Chat{
-		client:       client.NewClient(apiKey),
-		messages:     []client.Message{},
-		systemPrompt: "You are Claude, a helpful AI assistant. Respond clearly and concisely.",
-		maxTokens:    4096,
+func chatHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", 405)
+		return
 	}
-}
 
-func (c *Chat) addMessage(role, content string) {
-	c.messages = append(c.messages, client.Message{
-		Role:    role,
-		Content: content,
-	})
-}
+	var req struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
+		return
+	}
 
-func (c *Chat) sendMessage(content string) error {
-	c.addMessage("user", content)
-
-	err := c.client.SendMessage(c.messages, c.systemPrompt)
+	response, err := botClient.SendMessage([]client.Message{{Role: "user", Content: req.Message}}, "You are Claude, a helpful AI assistant. Be concise and clear.")
 	if err != nil {
-		c.messages = c.messages[:len(c.messages)-1]
-		return err
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
 	}
 
-	c.addMessage("assistant", "")
-	return nil
+	json.NewEncoder(w).Encode(map[string]string{"response": response})
 }
 
-func (c *Chat) clearHistory() {
-	c.messages = []client.Message{}
+func modelHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", 405)
+		return
+	}
+
+	var req struct {
+		Model string `json:"model"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	botClient.SetModel(req.Model)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-func (c *Chat) showModels() {
-	models := client.GetAvailableModels()
-	currentModel := c.client.GetModel()
-
-	fmt.Println("\nAvailable Models:")
-	fmt.Println(strings.Repeat("-", 40))
-	for _, model := range models {
-		marker := "  "
-		if model == currentModel {
-			marker = "* "
-		}
-		fmt.Printf("%s%s\n", marker, model)
-	}
-	fmt.Println()
-}
-
-func (c *Chat) switchModel(modelName string) error {
-	models := client.GetAvailableModels()
-	for _, m := range models {
-		if m == modelName {
-			c.client.SetModel(modelName)
-			fmt.Printf("Switched to model: %s\n\n", modelName)
-			return nil
-		}
-	}
-	return fmt.Errorf("unknown model: %s. Use /models to see available options.", modelName)
-}
-
-func (c *Chat) setMaxTokens(tokens int) {
-	if tokens < 100 {
-		tokens = 100
-	}
-	if tokens > 8192 {
-		tokens = 8192
-	}
-	c.maxTokens = tokens
-	fmt.Printf("Max tokens set to: %d\n\n", c.maxTokens)
-}
-
-func getConfigDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "."
-	}
-	return filepath.Join(home, ".config", "go-ai-bot")
-}
-
-func loadAPIKey() string {
-	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
-		return apiKey
-	}
-
-	configPath := filepath.Join(getConfigDir(), ".env")
-	if file, err := os.Open(configPath); err == nil {
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.HasPrefix(line, "ANTHROPIC_API_KEY=") {
-				apiKey := strings.TrimPrefix(line, "ANTHROPIC_API_KEY=")
-				return strings.Trim(apiKey, `"' `)
-			}
-		}
-	}
-	return ""
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("OK"))
 }
 
 func main() {
-	apiKey := loadAPIKey()
-
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		fmt.Println("Error: ANTHROPIC_API_KEY not found")
-		fmt.Println("Please set your API key:")
-		fmt.Println("  export ANTHROPIC_API_KEY=your-api-key")
-		fmt.Println("  Or create a .env file with: ANTHROPIC_API_KEY=your-api-key")
-		os.Exit(1)
+		log.Fatal("ANTHROPIC_API_KEY is required")
 	}
 
-	chat := NewChat(apiKey)
+	botClient = client.NewClient(apiKey)
 
-	printLogo()
-
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Print("You: ")
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("\nGoodbye!")
-			break
-		}
-
-		input = strings.TrimSpace(input)
-		if input == "" {
-			continue
-		}
-
-		if strings.HasPrefix(input, "/") {
-			cmd := strings.SplitN(input, " ", 2)
-			command := strings.ToLower(cmd[0])
-			arg := ""
-			if len(cmd) > 1 {
-				arg = strings.TrimSpace(cmd[1])
-			}
-
-			switch command {
-			case "/help":
-				printHelp()
-			case "/clear":
-				chat.clearHistory()
-				fmt.Println("Chat history cleared!\n")
-			case "/models":
-				chat.showModels()
-			case "/model":
-				if arg == "" {
-					fmt.Printf("Current model: %s\n", chat.client.GetModel())
-					fmt.Println("Usage: /model <model-name> (use /models to see options)\n")
-				} else if err := chat.switchModel(arg); err != nil {
-					fmt.Printf("Error: %s\n\n", err.Error())
-				}
-			case "/exit", "/quit":
-				fmt.Println("Goodbye!")
-				return
-			case "/tokens":
-				if arg == "" {
-					fmt.Printf("Current max tokens: %d\n\n", chat.maxTokens)
-				} else {
-					var tokens int
-					if _, err := fmt.Sscanf(arg, "%d", &tokens); err == nil {
-						chat.setMaxTokens(tokens)
-					} else {
-						fmt.Println("Invalid token count. Usage: /tokens <number>\n")
-					}
-				}
-			default:
-				fmt.Printf("Unknown command: %s. Type /help for available commands.\n\n", command)
-			}
-			continue
-		}
-
-		err = chat.sendMessage(input)
-		if err != nil {
-			fmt.Printf("\nError: %s\n\n", err.Error())
-		}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
+
+	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/api/chat", chatHandler)
+	http.HandleFunc("/api/model", modelHandler)
+	http.HandleFunc("/health", healthHandler)
+
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

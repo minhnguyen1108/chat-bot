@@ -6,7 +6,8 @@
       "WebFetch(domain:render.com)",
       "WebFetch(domain:fly.io)",
       "WebFetch(domain:www.heroku.com)",
-      "WebFetch(domain:railway.app)"
+      "WebFetch(domain:railway.app)",
+      "Bash(go mod:*)"
     ]
   }
 }
