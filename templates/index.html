@@ -458,10 +458,12 @@
         }
 
         function renderMarkdown(text) {
+            // Remove thinking/reasoning blocks
+            text = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+            text = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
             // Check if content already has HTML tags
             if (/<[a-z][\s\S]*>/i.test(text)) {
-                // Already has HTML, just escape text content inside tags
-                // This is a simple approach - the HTML should be safe from the API
                 return text;
             }
 
