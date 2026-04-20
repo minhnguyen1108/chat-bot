@@ -13,124 +13,7 @@ import (
 var botClient *client.Client
 var apiKeyLog string
 
-const htmlPage = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Claude AI Bot</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; display: flex; flex-direction: column; }
-        .header { background: #16213e; padding: 15px 20px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { color: #00d9ff; font-size: 1.4rem; }
-        .model-select { background: #0f3460; color: #fff; border: 1px solid #00d9ff; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-        .chat-container { flex: 1; max-width: 900px; margin: 0 auto; width: 100%; padding: 20px; overflow-y: auto; }
-        .message { margin: 15px 0; padding: 15px 20px; border-radius: 15px; max-width: 80%; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; }
-        .user { background: #0f3460; margin-left: auto; border-bottom-right-radius: 5px; }
-        .bot { background: #16213e; border: 1px solid #0f3460; margin-right: auto; border-bottom-left-radius: 5px; }
-        .input-area { background: #16213e; padding: 20px; border-top: 1px solid #0f3460; }
-        .input-container { max-width: 900px; margin: 0 auto; display: flex; gap: 10px; }
-        textarea { flex: 1; background: #0f3460; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 10px; resize: none; font-size: 1rem; min-height: 50px; max-height: 200px; font-family: inherit; }
-        textarea:focus { outline: none; border-color: #00d9ff; }
-        button { background: #00d9ff; color: #1a1a2e; border: none; padding: 15px 30px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1rem; }
-        button:hover { background: #00b8d9; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        .typing { color: #00d9ff; font-style: italic; }
-        .clear-btn { background: #ff6b6b; padding: 8px 15px; border-radius: 8px; font-size: 0.9rem; }
-        .clear-btn:hover { background: #ee5a5a; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Claude AI Bot</h1>
-        <div>
-            <button class="clear-btn" onclick="clearChat()">Clear</button>
-            <select class="model-select" onchange="changeModel(this.value)">
-                <option value="claude-3-5-haiku-20241007">Haiku (Fast)</option>
-                <option value="claude-3-5-sonnet-20241022">Sonnet (Balanced)</option>
-                <option value="claude-3-opus-20240229">Opus (Powerful)</option>
-            </select>
-        </div>
-    </div>
-    <div class="chat-container" id="chat"></div>
-    <div class="input-area">
-        <div class="input-container">
-            <textarea id="input" placeholder="Type your message..." onkeydown="handleKey(event)" rows="1"></textarea>
-            <button onclick="sendMessage()" id="sendBtn">Send</button>
-        </div>
-    </div>
-    <script>
-        const chat = document.getElementById('chat');
-        const input = document.getElementById('input');
-        const sendBtn = document.getElementById('sendBtn');
-
-        async function sendMessage() {
-            const text = input.value.trim();
-            if (!text) return;
-
-            addMessage('user', text);
-            input.value = '';
-            sendBtn.disabled = true;
-
-            const botMsg = addMessage('bot', 'Claude is thinking...');
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
-                });
-                const data = await response.json();
-
-                if (data.error) {
-                    botMsg.innerHTML = '<strong>Claude:</strong>\n<span style="color:#ff6b6b">Error: ' + data.error + '</span>';
-                } else {
-                    botMsg.innerHTML = '<strong>Claude:</strong>\n' + escapeHtml(data.response);
-                }
-            } catch (e) {
-                botMsg.innerHTML = '<strong>Claude:</strong>\n<span style="color:#ff6b6b">Error: ' + e.message + '</span>';
-            }
-
-            sendBtn.disabled = false;
-            input.focus();
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-        }
-
-        function addMessage(role, text) {
-            const div = document.createElement('div');
-            div.className = 'message ' + role;
-            div.innerHTML = text;
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-            return div;
-        }
-
-        function handleKey(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        }
-
-        async function changeModel(model) {
-            await fetch('/api/model', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: model })
-            });
-            addMessage('bot', '<strong>Claude:</strong>\nModel switched!');
-        }
-
-        async function clearChat() {
-            chat.innerHTML = '';
-        }
-    </script>
-</body>
-</html>`
+const htmlPage = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Claude</title>\n    <link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap\">\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        :root {\n            --sidebar-bg: #1a1a1a;\n            --sidebar-border: #2e2e2e;\n            --sidebar-hover: #2a2a2a;\n            --sidebar-active: #333;\n            --main-bg: #0a0a0a;\n            --header-bg: #0f0f0f;\n            --border: #333;\n            --text: #ececf1;\n            --text-secondary: #8b949e;\n            --text-muted: #6e7681;\n            --accent: #d4a574;\n            --user-bg: #1a1a2e;\n            --bot-bg: #0f0f0f;\n            --input-bg: #262626;\n            --scrollbar: #3a3a3c;\n        }\n        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--main-bg); color: var(--text); height: 100vh; overflow: hidden; }\n        .app { display: flex; height: 100vh; }\n        .sidebar { width: 280px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); display: flex; flex-direction: column; flex-shrink: 0; }\n        .sidebar-header { padding: 16px; border-bottom: 1px solid var(--sidebar-border); }\n        .new-chat-btn { width: 100%; padding: 12px 16px; background: var(--accent); color: #0a0a0a; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s; }\n        .new-chat-btn:hover { background: #e5b985; }\n        .chat-history { flex: 1; overflow-y: auto; padding: 8px; }\n        .chat-history::-webkit-scrollbar { width: 6px; }\n        .chat-history::-webkit-scrollbar-track { background: transparent; }\n        .chat-history::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }\n        .history-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; padding: 16px 8px 8px; letter-spacing: 0.5px; }\n        .chat-item { padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; transition: background 0.2s; }\n        .chat-item:hover { background: var(--sidebar-hover); }\n        .chat-item.active { background: var(--sidebar-active); }\n        .chat-item svg { width: 20px; height: 20px; color: var(--text-secondary); flex-shrink: 0; }\n        .chat-item-text { flex: 1; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n        .sidebar-footer { padding: 12px; border-top: 1px solid var(--sidebar-border); }\n        .user-menu { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }\n        .user-menu:hover { background: var(--sidebar-hover); }\n        .user-avatar { width: 32px; height: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }\n        .user-info { flex: 1; }\n        .user-name { font-size: 14px; font-weight: 500; }\n        .user-status { font-size: 12px; color: var(--text-muted); }\n        .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }\n        .header { height: 56px; background: var(--header-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; }\n        .header-left, .header-right { display: flex; align-items: center; gap: 16px; }\n        .header-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }\n        .header-btn:hover { background: var(--sidebar-hover); color: var(--text); }\n        .model-selector { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; cursor: pointer; transition: all 0.2s; }\n        .model-selector:hover { border-color: var(--text-muted); }\n        .model-selector select { background: transparent; border: none; color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; outline: none; }\n        .model-selector select option { background: var(--input-bg); }\n        .chat-container { flex: 1; overflow-y: auto; padding: 20px; }\n        .chat-container::-webkit-scrollbar { width: 8px; }\n        .chat-container::-webkit-scrollbar-track { background: transparent; }\n        .chat-container::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }\n        .welcome-screen { max-width: 800px; margin: 0 auto; padding: 60px 20px; text-align: center; }\n        .welcome-logo { font-size: 72px; margin-bottom: 24px; }\n        .welcome-title { font-size: 36px; font-weight: 700; margin-bottom: 12px; background: linear-gradient(135deg, #d4a574 0%, #f5d09a 50%, #d4a574 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }\n        .welcome-subtitle { font-size: 16px; color: var(--text-secondary); margin-bottom: 40px; }\n        .capabilities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: left; }\n        .capability-card { background: var(--bot-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; }\n        .capability-card:hover { border-color: var(--accent); transform: translateY(-2px); }\n        .capability-icon { font-size: 28px; margin-bottom: 12px; }\n        .capability-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }\n        .capability-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }\n        .message { max-width: 800px; margin: 0 auto 24px; display: flex; gap: 16px; animation: fadeIn 0.3s ease; }\n        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }\n        .message-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; }\n        .message-avatar.user { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }\n        .message-avatar.assistant { background: linear-gradient(135deg, #d4a574 0%, #f5d09a 100%); }\n        .message-content { flex: 1; min-width: 0; }\n        .message-role { font-size: 14px; font-weight: 600; margin-bottom: 8px; }\n        .message-text { font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }\n        .message-text p { margin-bottom: 12px; }\n        .message-text p:last-child { margin-bottom: 0; }\n        .message-text code { background: #262626; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; font-size: 13px; }\n        .message-text pre { background: #262626; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }\n        .message-text pre code { background: none; padding: 0; }\n        .message-text ul, .message-text ol { margin: 12px 0; padding-left: 24px; }\n        .message-text li { margin-bottom: 6px; }\n        .message-text strong { font-weight: 600; color: var(--text); }\n        .message-text blockquote { border-left: 3px solid var(--accent); padding-left: 16px; margin: 12px 0; color: var(--text-secondary); }\n        .message-text h1 { font-size: 24px; margin-bottom: 16px; }\n        .message-text h2 { font-size: 20px; margin-bottom: 12px; margin-top: 24px; }\n        .message-text h3 { font-size: 16px; margin-bottom: 8px; margin-top: 16px; }\n        .typing-indicator { display: flex; gap: 4px; padding: 8px 0; }\n        .typing-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: typing 1.4s infinite; }\n        .typing-dot:nth-child(2) { animation-delay: 0.2s; }\n        .typing-dot:nth-child(3) { animation-delay: 0.4s; }\n        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-8px); opacity: 1; } }\n        .input-area { padding: 0 20px 20px; flex-shrink: 0; }\n        .input-container { max-width: 800px; margin: 0 auto; background: var(--input-bg); border: 1px solid var(--border); border-radius: 16px; transition: all 0.2s; }\n        .input-container:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212, 165, 116, 0.1); }\n        .input-actions { display: flex; padding: 8px 12px; border-bottom: 1px solid var(--border); gap: 8px; }\n        .input-action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }\n        .input-action-btn:hover { background: var(--sidebar-hover); color: var(--text); }\n        .input-textarea { width: 100%; background: transparent; border: none; color: var(--text); font-size: 15px; padding: 12px 16px; resize: none; outline: none; font-family: inherit; min-height: 52px; max-height: 200px; line-height: 1.5; }\n        .input-textarea::placeholder { color: var(--text-muted); }\n        .input-footer { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; }\n        .input-info { font-size: 12px; color: var(--text-muted); }\n        .send-btn { background: var(--accent); color: #0a0a0a; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }\n        .send-btn:hover:not(:disabled) { background: #e5b985; }\n        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }\n        .tooltip { position: relative; }\n        .tooltip-text { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--sidebar-active); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; opacity: 0; visibility: hidden; transition: all 0.2s; margin-bottom: 6px; }\n        .tooltip:hover .tooltip-text { opacity: 1; visibility: visible; }\n        @media (max-width: 768px) { .sidebar { display: none; } .capabilities { grid-template-columns: 1fr; } }\n    </style>\n</head>\n<body>\n    <div class=\"app\">\n        <div class=\"sidebar\">\n            <div class=\"sidebar-header\">\n                <button class=\"new-chat-btn\" onclick=\"newChat()\">\n                    <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"></line><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"></line></svg>\n                    New Chat\n                </button>\n            </div>\n            <div class=\"chat-history\">\n                <div class=\"history-title\">Today</div>\n                <div class=\"chat-item active\">\n                    <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg>\n                    <span class=\"chat-item-text\">New Conversation</span>\n                </div>\n                <div class=\"history-title\">Previous 7 Days</div>\n                <div class=\"chat-item\">\n                    <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg>\n                    <span class=\"chat-item-text\">Previous Chat</span>\n                </div>\n            </div>\n            <div class=\"sidebar-footer\">\n                <div class=\"user-menu\">\n                    <div class=\"user-avatar\">U</div>\n                    <div class=\"user-info\">\n                        <div class=\"user-name\">User</div>\n                        <div class=\"user-status\">Online</div>\n                    </div>\n                </div>\n            </div>\n        </div>\n        <div class=\"main\">\n            <div class=\"header\">\n                <div class=\"header-left\">\n                    <button class=\"header-btn tooltip\">\n                        <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"></line><line x1=\"3\" y1=\"6\" x2=\"21\" y2=\"6\"></line><line x1=\"3\" y1=\"18\" x2=\"21\" y2=\"18\"></line></svg>\n                        <span class=\"tooltip-text\">Menu</span>\n                    </button>\n                    <div class=\"model-selector\">\n                        <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 2L2 7l10 5 10-5-10-5z\"></path><path d=\"M2 17l10 5 10-5\"></path><path d=\"M2 12l10 5 10-5\"></path></svg>\n                        <select id=\"modelSelect\" onchange=\"changeModel(this.value)\">\n                            <option value=\"anthropic/claude-sonnet-4.5\">Claude Sonnet 4.5</option>\n                            <option value=\"anthropic/claude-haiku-4\">Claude Haiku 4</option>\n                            <option value=\"anthropic/claude-opus-4\">Claude Opus 4</option>\n                        </select>\n                    </div>\n                </div>\n                <div class=\"header-right\">\n                    <button class=\"header-btn tooltip\">\n                        <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"3\"></circle><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z\"></path></svg>\n                        <span class=\"tooltip-text\">Settings</span>\n                    </button>\n                </div>\n            </div>\n            <div class=\"chat-container\" id=\"chatContainer\">\n                <div class=\"welcome-screen\" id=\"welcomeScreen\">\n                    <div class=\"welcome-logo\">&#x1F916;</div>\n                    <h1 class=\"welcome-title\">How can I help you today?</h1>\n                    <p class=\"welcome-subtitle\">I am Claude, an AI assistant. Ask me anything.</p>\n                    <div class=\"capabilities\">\n                        <div class=\"capability-card\" onclick=\"askCapability('Explain a complex topic in simple terms')\">\n                            <div class=\"capability-icon\">&#x1F4DA;</div>\n                            <div class=\"capability-title\">Explain</div>\n                            <div class=\"capability-desc\">I can explain complex topics in simple, easy-to-understand ways</div>\n                        </div>\n                        <div class=\"capability-card\" onclick=\"askCapability('Write code for')\">\n                            <div class=\"capability-icon\">&#x1F4BB;</div>\n                            <div class=\"capability-title\">Write Code</div>\n                            <div class=\"capability-desc\">I can help you write, debug, and optimize code in any language</div>\n                        </div>\n                        <div class=\"capability-card\" onclick=\"askCapability('Brainstorm creative ideas for')\">\n                            <div class=\"capability-icon\">&#x1F4A1;</div>\n                            <div class=\"capability-title\">Brainstorm</div>\n                            <div class=\"capability-desc\">I can help you brainstorm ideas and plan projects</div>\n                        </div>\n                        <div class=\"capability-card\" onclick=\"askCapability('Summarize this text')\">\n                            <div class=\"capability-icon\">&#x1F4DD;</div>\n                            <div class=\"capability-title\">Summarize</div>\n                            <div class=\"capability-desc\">I can summarize long documents or articles quickly</div>\n                        </div>\n                        <div class=\"capability-card\" onclick=\"askCapability('Translate this to')\">\n                            <div class=\"capability-icon\">&#x1F310;</div>\n                            <div class=\"capability-title\">Translate</div>\n                            <div class=\"capability-desc\">I can translate text between multiple languages</div>\n                        </div>\n                        <div class=\"capability-card\" onclick=\"askCapability('Analyze this data')\">\n                            <div class=\"capability-icon\">&#x1F50D;</div>\n                            <div class=\"capability-title\">Analyze</div>\n                            <div class=\"capability-desc\">I can analyze data, documents, and complex problems</div>\n                        </div>\n                    </div>\n                </div>\n            </div>\n            <div class=\"input-area\">\n                <div class=\"input-container\">\n                    <div class=\"input-actions\">\n                        <button class=\"input-action-btn tooltip\" title=\"Attach file\">\n                            <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48\"></path></svg>\n                        </button>\n                        <button class=\"input-action-btn tooltip\" title=\"Add images\">\n                            <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><polyline points=\"21 15 16 10 5 21\"></polyline></svg>\n                        </button>\n                    </div>\n                    <textarea class=\"input-textarea\" id=\"messageInput\" placeholder=\"Message Claude...\" rows=\"1\" onkeydown=\"handleKeyDown(event)\" oninput=\"autoResize(this)\"></textarea>\n                    <div class=\"input-footer\">\n                        <span class=\"input-info\">Claude 4.5 Sonnet</span>\n                        <button class=\"send-btn\" id=\"sendBtn\" onclick=\"sendMessage()\">\n                            <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"22\" y1=\"2\" x2=\"11\" y2=\"13\"></line><polygon points=\"22 2 15 22 11 13 2 9 22 2\"></polygon></svg>\n                            Send\n                        </button>\n                    </div>\n                </div>\n            </div>\n        </div>\n    </div>\n    <script>\n        const chatContainer = document.getElementById('chatContainer');\n        const messageInput = document.getElementById('messageInput');\n        const sendBtn = document.getElementById('sendBtn');\n        const welcomeScreen = document.getElementById('welcomeScreen');\n        let messages = [];\n        let isTyping = false;\n\n        function autoResize(textarea) {\n            textarea.style.height = 'auto';\n            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';\n        }\n\n        function handleKeyDown(e) {\n            if (e.key === 'Enter' && !e.shiftKey) {\n                e.preventDefault();\n                sendMessage();\n            }\n        }\n\n        function newChat() {\n            messages = [];\n            const msgs = chatContainer.querySelectorAll('.message');\n            msgs.forEach(m => m.remove());\n            welcomeScreen.style.display = 'block';\n        }\n\n        function askCapability(prompt) {\n            messageInput.value = prompt;\n            messageInput.focus();\n        }\n\n        function changeModel(model) {\n            fetch('/api/model', {\n                method: 'POST',\n                headers: { 'Content-Type': 'application/json' },\n                body: JSON.stringify({ model: model })\n            });\n        }\n\n        function escapeHtml(text) {\n            const div = document.createElement('div');\n            div.textContent = text;\n            return div.innerHTML;\n        }\n\n        function renderMarkdown(text) {\n            let html = escapeHtml(text);\n            html = html.replace(/```(\\w+)?\\n([\\s\\S]*?)```/g, '<pre><code>$2</code></pre>');\n            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');\n            html = html.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');\n            html = html.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');\n            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');\n            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');\n            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');\n            html = html.replace(/^\\- (.+)$/gm, '<li>$1</li>');\n            html = html.replace(/\\n\\n/g, '</p><p>');\n            html = '<p>' + html + '</p>';\n            html = html.replace(/<p><\\/p>/g, '');\n            return html;\n        }\n\n        function addMessage(role, content) {\n            if (welcomeScreen.style.display !== 'none') {\n                welcomeScreen.style.display = 'none';\n            }\n            const avatar = role === 'user' ? 'U' : '&#x1F916;';\n            const avatarClass = role === 'user' ? 'user' : 'assistant';\n            const roleName = role === 'user' ? 'You' : 'Claude';\n            const html = '<div class=\"message\"><div class=\"message-avatar ' + avatarClass + '\">' + avatar + '</div><div class=\"message-content\"><div class=\"message-role\">' + roleName + '</div><div class=\"message-text\">' + renderMarkdown(content) + '</div></div></div>';\n            chatContainer.insertAdjacentHTML('beforeend', html);\n            chatContainer.scrollTop = chatContainer.scrollHeight;\n        }\n\n        function showTyping() {\n            const html = '<div class=\"message\" id=\"typingMsg\"><div class=\"message-avatar assistant\">&#x1F916;</div><div class=\"message-content\"><div class=\"message-role\">Claude</div><div class=\"message-text\"><div class=\"typing-indicator\"><div class=\"typing-dot\"></div><div class=\"typing-dot\"></div><div class=\"typing-dot\"></div></div></div></div></div>';\n            chatContainer.insertAdjacentHTML('beforeend', html);\n            chatContainer.scrollTop = chatContainer.scrollHeight;\n        }\n\n        function removeTyping() {\n            const typing = document.getElementById('typingMsg');\n            if (typing) typing.remove();\n        }\n\n        async function sendMessage() {\n            const text = messageInput.value.trim();\n            if (!text || isTyping) return;\n            isTyping = true;\n            sendBtn.disabled = true;\n            messageInput.value = '';\n            messageInput.style.height = 'auto';\n            messages.push({ role: 'user', content: text });\n            addMessage('user', text);\n            showTyping();\n            try {\n                const response = await fetch('/api/chat', {\n                    method: 'POST',\n                    headers: { 'Content-Type': 'application/json' },\n                    body: JSON.stringify({ message: text })\n                });\n                const data = await response.json();\n                removeTyping();\n                if (data.error) {\n                    addMessage('assistant', 'Error: ' + data.error);\n                } else {\n                    messages.push({ role: 'assistant', content: data.response });\n                    addMessage('assistant', data.response);\n                }\n            } catch (e) {\n                removeTyping();\n                addMessage('assistant', 'Error: ' + e.message);\n            }\n            isTyping = false;\n            sendBtn.disabled = false;\n            messageInput.focus();\n        }\n    </script>\n</body>\n</html>"
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
@@ -151,7 +34,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := botClient.SendMessage([]client.Message{{Role: "user", Content: req.Message}}, "You are Claude, a helpful AI assistant.")
+	response, err := botClient.SendMessage([]client.Message{{Role: "user", Content: req.Message}}, "You are Claude, an AI assistant made by Anthropic. Be helpful, harmless, and honest. Respond clearly and concisely.")
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
@@ -181,14 +64,13 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 func debugHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Test API key by making a simple request
-	testResp, err := botClient.SendMessage([]client.Message{{Role: "user", Content: "Hi"}}, "You are Claude.")
+	testResp, err := botClient.SendMessage([]client.Message{{Role: "user", Content: "Hi"}}, "")
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"apiKeyLoaded": apiKeyLog,
 			"model":        botClient.GetModel(),
 			"status":       "error",
-			"error":         err.Error(),
+			"error":        err.Error(),
 		})
 		return
 	}
@@ -202,12 +84,14 @@ func debugHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	apiKey := os.Getenv("AISHOP24H_API_KEY")
 	if apiKey == "" {
-		log.Fatal("ANTHROPIC_API_KEY is required")
+		apiKey = os.Getenv("ANTHROPIC_API_KEY")
+	}
+	if apiKey == "" {
+		log.Fatal("AISHOP24H_API_KEY or ANTHROPIC_API_KEY is required")
 	}
 
-	// Log partial key for debugging (first 10 chars only)
 	if len(apiKey) > 10 {
 		apiKeyLog = apiKey[:10] + "..."
 	} else {
@@ -228,6 +112,6 @@ func main() {
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/debug", debugHandler)
 
-	log.Printf("Server starting on port %s", port)
+	log.Printf("Server started on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
