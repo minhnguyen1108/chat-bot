@@ -8,6 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o bot .
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/bot .
+COPY --from=builder /app/templates ./templates
 RUN apk add --no-cache ca-certificates
 ENV PORT=8080
 EXPOSE 8080

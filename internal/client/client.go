@@ -96,7 +96,7 @@ func (c *Client) SendMessage(messages []Message, systemPrompt string) (string, e
 
 	var response Response
 	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return "", fmt.Errorf("failed to decode response: %s", string(body))
 	}
 
 	if response.Error != nil {
