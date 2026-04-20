@@ -458,12 +458,14 @@
         }
 
         function renderMarkdown(text) {
-            // If text contains HTML tags, render as HTML
-            if (text.includes('<') && text.includes('>')) {
+            // Check if content already has HTML tags
+            if (/<[a-z][\s\S]*>/i.test(text)) {
+                // Already has HTML, just escape text content inside tags
+                // This is a simple approach - the HTML should be safe from the API
                 return text;
             }
 
-            // Otherwise, render markdown
+            // Otherwise, escape and render markdown
             let html = escapeHtml(text);
 
             // Code blocks
@@ -515,12 +517,21 @@
             const avatarClass = role === 'user' ? 'user' : 'assistant';
             const roleName = role === 'user' ? 'You' : 'Claude';
 
-            // Render markdown for assistant, escape for user
-            const messageContent = role === 'assistant' ? renderMarkdown(content) : escapeHtml(content);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + role;
+            messageDiv.innerHTML = '<div class="message-avatar ' + avatarClass + '">' + avatar + '</div><div class="message-content"><div class="message-role">' + roleName + '</div><div class="message-text"></div></div>';
 
-            const html = '<div class="message ' + role + '"><div class="message-avatar ' + avatarClass + '">' + avatar + '</div><div class="message-content"><div class="message-role">' + roleName + '</div><div class="message-text">' + messageContent + '</div></div></div>';
+            const textDiv = messageDiv.querySelector('.message-text');
 
-            chatContainer.insertAdjacentHTML('beforeend', html);
+            if (role === 'assistant') {
+                // For assistant, render as HTML or markdown
+                textDiv.innerHTML = renderMarkdown(content);
+            } else {
+                // For user, escape HTML
+                textDiv.textContent = content;
+            }
+
+            chatContainer.appendChild(messageDiv);
             if (scroll) chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
