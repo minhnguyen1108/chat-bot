@@ -42,7 +42,7 @@ type Client struct {
 func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey: apiKey,
-		model:  "anthropic/claude-sonnet-4.5",
+		model:  "anthropic/claude-opus-4.6",
 	}
 }
 
