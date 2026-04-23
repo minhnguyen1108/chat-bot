@@ -270,7 +270,7 @@
                             <button class="input-action-btn tooltip" title="Attach file" onclick="document.getElementById('fileInput').click()">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                             </button>
-                            <input type="file" id="fileInput" style="display:none" onchange="handleFile(this.files[0])">
+                            <input type="file" id="fileInput" accept=".txt,.md,.csv,.json,.yaml,.yml,.xml,.log,.go,.js,.ts,.py,.java,.c,.cpp,.html,.css,.sql,.sh" style="display:none" onchange="handleFile(this.files[0])">
                         </div>
                         <textarea class="input-textarea" id="messageInput" placeholder="Message Claude..." rows="1" onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
                         <div class="input-footer">
@@ -293,7 +293,11 @@
         const welcomeScreen = document.getElementById('welcomeScreen');
         const filePreview = document.getElementById('filePreview');
         const fileNameEl = document.getElementById('fileName');
+        const fileInput = document.getElementById('fileInput');
         const chatList = document.getElementById('chatList');
+
+        const maxFileSize = 2 * 1024 * 1024;
+        const supportedFileExtensions = new Set(['.txt', '.md', '.csv', '.json', '.yaml', '.yml', '.xml', '.log', '.go', '.js', '.ts', '.py', '.java', '.c', '.cpp', '.html', '.css', '.sql', '.sh']);
 
         let currentChatId = null;
         let isTyping = false;
@@ -438,17 +442,33 @@
         }
 
         function handleFile(file) {
-            if (file) {
-                attachedFile = file;
-                fileNameEl.textContent = file.name;
-                filePreview.classList.add('active');
+            if (!file) {
+                return;
             }
+
+            const dotIndex = file.name.lastIndexOf('.');
+            const extension = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : '';
+            if (!supportedFileExtensions.has(extension)) {
+                alert('Unsupported file type. Please choose a text or source code file.');
+                fileInput.value = '';
+                return;
+            }
+
+            if (file.size > maxFileSize) {
+                alert('File is too large. Maximum size is 2 MB.');
+                fileInput.value = '';
+                return;
+            }
+
+            attachedFile = file;
+            fileNameEl.textContent = file.name + ' (' + Math.ceil(file.size / 1024) + ' KB)';
+            filePreview.classList.add('active');
         }
 
         function removeFile() {
             attachedFile = null;
             filePreview.classList.remove('active');
-            document.getElementById('fileInput').value = '';
+            fileInput.value = '';
         }
 
         function escapeHtml(text) {
@@ -457,17 +477,32 @@
             return div.innerHTML;
         }
 
+        function escapeAttribute(text) {
+            return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        }
+
+        function sanitizeLink(url) {
+            const trimmed = url.trim();
+            if (trimmed.startsWith('#') || trimmed.startsWith('/')) {
+                return trimmed;
+            }
+
+            try {
+                const parsed = new URL(trimmed, window.location.origin);
+                if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+                    return parsed.href;
+                }
+            } catch (e) {
+            }
+
+            return '#';
+        }
+
         function renderMarkdown(text) {
             // Remove thinking/reasoning blocks
             text = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
-            text = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
 
-            // Check if content already has HTML tags
-            if (/<[a-z][\s\S]*>/i.test(text)) {
-                return text;
-            }
-
-            // Otherwise, escape and render markdown
+            // Escape and render markdown
             let html = escapeHtml(text);
 
             // Code blocks
@@ -498,7 +533,10 @@
             html = html.replace(/^---$/gm, '<hr>');
 
             // Links
-            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+                const href = escapeAttribute(sanitizeLink(url));
+                return '<a href="' + href + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+            });
 
             // Paragraphs
             html = html.split('\n\n').map(p => {
@@ -550,32 +588,39 @@
 
         async function sendMessage() {
             const text = messageInput.value.trim();
-            if (!text || isTyping) return;
+            if ((!text && !attachedFile) || isTyping) return;
+
+            const userMessage = text || 'Please analyze the attached file.';
 
             isTyping = true;
             sendBtn.disabled = true;
             messageInput.value = '';
             messageInput.style.height = 'auto';
 
-            // Collect messages
             const messages = [];
             document.querySelectorAll('.message').forEach(m => {
                 const role = m.classList.contains('user') ? 'user' : 'assistant';
                 const content = m.querySelector('.message-text').textContent;
                 messages.push({ role, content });
             });
-            messages.push({ role: 'user', content: text });
+            messages.push({ role: 'user', content: userMessage });
 
-            addMessage('user', text);
+            addMessage('user', userMessage);
             showTyping();
 
             try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
-                });
+                const requestOptions = { method: 'POST' };
+                if (attachedFile) {
+                    const formData = new FormData();
+                    formData.append('message', text);
+                    formData.append('file', attachedFile);
+                    requestOptions.body = formData;
+                } else {
+                    requestOptions.headers = { 'Content-Type': 'application/json' };
+                    requestOptions.body = JSON.stringify({ message: text });
+                }
 
+                const response = await fetch('/api/chat', requestOptions);
                 const data = await response.json();
                 removeTyping();
 
@@ -584,9 +629,9 @@
                 } else {
                     addMessage('assistant', data.response);
                     messages.push({ role: 'assistant', content: data.response });
+                    removeFile();
                 }
 
-                // Save chat
                 saveChat(messages);
 
             } catch (e) {

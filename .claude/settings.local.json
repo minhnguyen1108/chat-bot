@@ -11,7 +11,11 @@
       "Bash(python3:*)",
       "Bash(py:*)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(base64 -w0 \"d:/go/ai/main.go\")",
+      "Bash(base64 -w0 \"d:/go/ai/templates/index.html\")"
     ]
   }
 }
