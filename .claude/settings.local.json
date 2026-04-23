@@ -9,7 +9,9 @@
       "WebFetch(domain:railway.app)",
       "Bash(go mod:*)",
       "Bash(python3:*)",
-      "Bash(py:*)"
+      "Bash(py:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }
